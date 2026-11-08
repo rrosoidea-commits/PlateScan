@@ -13,6 +13,7 @@ Pipeline for every image:
   5. Format check + log  - Philippine plate format check, saved to SQLite
 """
 
+import base64
 import csv
 import io
 import json
@@ -244,6 +245,62 @@ def recognize(models: Models, img: np.ndarray):
 
     plates.sort(key=lambda p: p["plate_conf"] * (p["ocr_conf"] or 0.01), reverse=True)
     return plates, vehicles, t, vis
+
+
+# ---------------------------------------------------------------------------
+# Dashboard response (shared by the FastAPI server and the Streamlit app)
+# ---------------------------------------------------------------------------
+def to_b64(img, ext=".jpg", quality=85) -> str:
+    """numpy image -> data URL for the browser."""
+    params = [cv2.IMWRITE_JPEG_QUALITY, quality] if ext == ".jpg" else []
+    ok, buf = cv2.imencode(ext, img, params)
+    mime = "jpeg" if ext == ".jpg" else "png"
+    return f"data:image/{mime};base64," + base64.b64encode(buf).decode() if ok else ""
+
+
+def predict_payload(models, data: bytes, source: str, log, session: str) -> dict:
+    """Recognize one image, log its plates, and build the dashboard's JSON response.
+    Raises ValueError if the bytes are not an image."""
+    from datetime import datetime
+
+    img = load_image(data)
+    t_start = time.perf_counter()
+    plates, vehicles, timings, vis = recognize(models, img)
+    total = (time.perf_counter() - t_start) * 1000
+
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log.add(plates, ts, source, session)
+
+    for p in plates:  # numpy views -> PNG data URLs
+        p["preprocess"] = [to_b64(v, ".png") for v in p.pop("views")]
+
+    best = plates[0] if plates else None
+    scale = 1280 / max(vis.shape[:2])
+    return {
+        # main reading (same fields as the API sketch in the mockup)
+        "plate": best["plate"] if best else None,
+        "ocr_conf": best["ocr_conf"] if best else None,
+        "plate_conf": best["plate_conf"] if best else None,
+        "vehicle": best["vehicle"] if best else None,
+        "vehicle_conf": best["vehicle_conf"] if best else None,
+        "vehicle_box": best["vehicle_box"] if best else None,
+        "plate_box": best["plate_box"] if best else None,
+        "timings_ms": {k: round(v, 1) for k, v in timings.items()},
+        "total_ms": round(total, 1),
+        # extra detail for the dashboard
+        "timestamp": ts,
+        "source": source,
+        "image_size": [img.shape[1], img.shape[0]],
+        "plates": plates,
+        "vehicles": vehicles,
+        "annotated": to_b64(vis if scale >= 1 else cv2.resize(vis, None, fx=scale, fy=scale)),
+    }
+
+
+def health_payload(models) -> dict:
+    return {"status": "ok", "device": models.device_name,
+            "models": {"plate": PLATE_WEIGHTS.name, "vehicle": VEHICLE_WEIGHTS.name, "ocr": OCR_MODEL},
+            "plate_conf": PLATE_CONF, "review_ocr_conf": REVIEW_OCR_CONF}
 
 
 # ---------------------------------------------------------------------------

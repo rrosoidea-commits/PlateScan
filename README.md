@@ -8,7 +8,7 @@ Image ─► YOLO26n plate detector ─► plate crop ─► fast-plate-ocr ─�
 
 - **Detector:** Ultralytics YOLO26n fine-tuned on ~16,900 license plate images.
 - **Reader:** [fast-plate-ocr](https://github.com/ankandrew/fast-plate-ocr) (`cct-xs-v2-global-model`), a pretrained plate-specific OCR model.
-- **Dashboards:** a **Streamlit app** (`streamlit_app.py`, deployable on Streamlit Community Cloud) and a local **FastAPI + HTML** dashboard (`platescan/server.py`) — camera capture or image upload, plate reading, preprocessing views, model metrics, and a searchable vehicle log with CSV export. Both share one pipeline (`platescan/pipeline.py`).
+- **Dashboard:** one web page (`platescan/static/index.html`) — camera capture or image upload, plate reading, preprocessing views, model metrics, and a searchable vehicle log with CSV export. It runs identically in two ways: as a **Streamlit app** (`streamlit_app.py`, deployable on Streamlit Community Cloud) or with a local **FastAPI** server (`platescan/server.py`). Both use one shared pipeline (`platescan/pipeline.py`).
 
 ![Pipeline](pipeline_diagram.svg)
 
@@ -28,10 +28,10 @@ Detection recall is 96–99% for plates at least 40 px tall (at 640 px) and drop
 ```
 AI_PlateNumber.py          Detector pipeline: setup, data checks/repair, training, evaluation, speed (Parts 1-10)
 AI_PlateNumber_OCR.py      Reader pipeline: detect + crop + OCR, test-set run, manual accuracy check (Parts 1-8)
-streamlit_app.py           Streamlit dashboard (local or Streamlit Community Cloud)
+streamlit_app.py           Streamlit host: shows the dashboard page as a component (local or Streamlit Cloud)
 platescan/pipeline.py      Shared pipeline: models, recognition, PH format check, SQLite log, metrics
-platescan/server.py        FastAPI dashboard backend: POST /predict, /metrics, /log, /log.csv
-platescan/static/index.html  FastAPI dashboard page
+platescan/server.py        FastAPI host: POST /predict, /metrics, /log, /log.csv
+platescan/static/index.html  The dashboard page (used by both hosts)
 packages.txt, .streamlit/  System packages and theme for Streamlit Cloud
 models/yolo26n_640_e50_best.pt  Trained plate detector (5.3 MB)
 scripts/make_report_figures.py  Charts and extra analyses for RESULTS_DOCUMENTATION.md
@@ -62,11 +62,11 @@ Run all commands from the repository folder.
 ```bash
 streamlit run streamlit_app.py
 ```
-Opens <http://localhost:8501>. Upload an image or take a camera snapshot. The first start downloads the COCO-pretrained `yolo26n.pt` (vehicle detection) and the OCR model.
+Opens <http://localhost:8501> with the PlateScan dashboard. Use *Live camera* or *Upload image*. The first start downloads the COCO-pretrained `yolo26n.pt` (vehicle detection) and the OCR model.
 
 **Deploy on Streamlit Community Cloud** — at [share.streamlit.io](https://share.streamlit.io): *Create app* → repository `rrosoidea-commits/PlateScan`, branch `main`, **main file path `streamlit_app.py`**, and in *Advanced settings* choose **Python 3.12**. The cloud runs on CPU (~0.1–1 s per image); the vehicle log is per browser session and resets when the app restarts.
 
-**FastAPI dashboard** (local, follows the PlateScan mockup)
+**FastAPI dashboard** (local alternative, same page)
 ```bash
 python platescan/server.py
 ```
