@@ -1,8 +1,13 @@
-# PlateScan - Python 3.10+ (developed on Python 3.14, Windows 11)
+# PlateScan - Python 3.10+ (developed on Python 3.14; use 3.12 on Streamlit Cloud)
 #
-# PyTorch with GPU support: install it FIRST from https://pytorch.org, e.g.
+# This file is used as-is by Streamlit Community Cloud, which has no GPU, so it pulls the
+# small CPU-only PyTorch build.
+# LOCAL GPU INSTALL: install the CUDA build of PyTorch FIRST, then this file keeps it:
 #   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
-# (AI_PlateNumber.py Part 1 also does this automatically on Windows with an NVIDIA GPU.)
+#   pip install -r requirements.txt
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+torchvision
 
 ultralytics>=8.4.0          # YOLO26 detector (training, evaluation, inference)
 fast-plate-ocr[onnx]>=1.1   # plate reader (OCR), runs on CPU with ONNX Runtime
@@ -11,8 +16,9 @@ numpy
 pillow
 matplotlib
 
-# Dashboard (platescan/server.py)
-fastapi
+# Dashboards
+streamlit>=1.50             # streamlit_app.py (local or Streamlit Cloud)
+fastapi                     # platescan/server.py (local HTML dashboard)
 uvicorn
 python-multipart
 
